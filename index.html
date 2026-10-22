@@ -88,6 +88,23 @@ th.brk{border-left:2px dashed var(--chalk)}
 .segs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
 .seg{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface);min-width:0}
 .seg h3{margin:0 0 6px;font-family:var(--display);font-size:1.05rem;text-transform:uppercase;letter-spacing:.03em;display:flex;justify-content:space-between;gap:8px}
+.seg{display:grid;gap:6px;transition:opacity .2s}
+.seg h3{margin:0}
+.seg.now{border:2px solid var(--turf);box-shadow:0 0 0 3px var(--turf-soft)}
+.seg.done{opacity:.55}
+.seg.done .in,.seg.done .out{text-decoration:line-through;text-decoration-color:var(--chalk)}
+.seg .tag{font-family:var(--body);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--surface);background:var(--turf);border-radius:999px;padding:2px 8px;align-self:center}
+.seg .p{margin:0}
+.donebtn{justify-self:start;display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.9rem;min-height:40px}
+.donebtn .box{width:18px;height:18px;border:2px solid var(--muted);border-radius:4px;display:grid;place-items:center;font-size:.8rem;line-height:1;color:var(--surface)}
+.seg.done .donebtn .box{background:var(--turf);border-color:var(--turf)}
+.progress{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px}
+.bar{flex:1 1 160px;height:8px;background:var(--bench);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--turf);width:0;transition:width .25s}
+.progress span{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+th.cur{color:var(--turf)}
+td.donecol{opacity:.4}
+@media (prefers-reduced-motion: reduce){.seg,.bar i{transition:none}}
 .seg h3 small{font-family:var(--body);font-size:.75rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
 .seg .in{font-size:.85rem;margin:0}
 .seg .in em{font-style:normal;color:var(--turf);font-weight:600}
@@ -156,6 +173,7 @@ Addy</textarea></label>
       <li>Each period is split into equal <b>shifts</b> at the water breaks. You sub only at those stops.</li>
       <li>The <b>rotation grid</b> shows who plays each shift and their total minutes. Totals in orange are one shift short.</li>
       <li><b>Shift by shift</b> cards list who's on and who sits, with game-clock times. Green names are coming on.</li>
+      <li>Tap <b>Mark shift done</b> at each water break to keep your place. The next shift is outlined and tagged <b>On now</b>. Checks clear whenever you build a new rotation.</li>
     </ul>
     <h3>Tips</h3>
     <ul>
@@ -205,7 +223,9 @@ function plan(n, k, periods, plen, breaks){
   return {segs, mins, onCount, segLen};
 }
 
+let done=new Set();
 function build(){
+  done=new Set();
   const n=+$("roster").value, k=+$("onfield").value, periods=+$("periods").value, plen=+$("plen").value, breaks=+$("breaks").value;
   const err=$("err"); err.hidden=true;
   const bad = msg => { err.textContent=msg; err.hidden=false; $("out").innerHTML=""; };
@@ -235,30 +255,60 @@ function build(){
   <div>
   <h2>Rotation grid</h2>
   <div class="scroll"><table><thead><tr><th></th>`;
-  segs.forEach((s,i)=>{ h+=`<th class="${i>0&&s.part===1?'brk':''}">${label(s)}</th>`; });
+  segs.forEach((s,i)=>{ h+=`<th data-col="${i}" class="${i>0&&s.part===1?'brk':''}">${label(s)}</th>`; });
   h+=`<th>Min</th></tr></thead><tbody>`;
   const sorted=[...Array(n).keys()];
   sorted.forEach(p=>{
     h+=`<tr><th scope="row">${esc(names[p])}</th>`;
-    segs.forEach(s=>{ h+= s.on.has(p)? `<td class="on">On</td>` : `<td class="off">–</td>`; });
+    segs.forEach((s,i)=>{ h+= s.on.has(p)? `<td data-col="${i}" class="on">On</td>` : `<td data-col="${i}" class="off">–</td>`; });
     h+=`<td class="tot ${mins[p]<hi-0.01?'lo':''}">${fmt(mins[p])}</td></tr>`;
   });
   h+=`</tbody></table></div>
   <div class="legend"><span><i style="background:var(--turf)"></i>Playing</span><span><i style="background:var(--bench)"></i>Bench</span><span>Dashed line = new period</span></div>
   </div></div>
-  <div><h2>Shift by shift</h2><div class="segs">`;
+  <div><h2>Shift by shift</h2>
+  <div class="progress"><div class="bar"><i id="bar"></i></div><span id="prog"></span></div>
+  <div class="segs">`;
   segs.forEach((s,i)=>{
     const prev=i>0?segs[i-1].on:new Set();
     const onL=[...s.on].sort((a,b)=>a-b).map(p=> (i>0&&!prev.has(p))?`<em>${esc(names[p])}</em>`:esc(names[p]));
     const offL=[...Array(n).keys()].filter(p=>!s.on.has(p)).map(p=>esc(names[p]));
     const startT=clock(s.start), endT=clock(s.start+s.len);
-    h+=`<div class="seg"><h3>Period ${s.period}${per>1?` · Part ${s.part}`:""}<small>${startT}–${endT}</small></h3>
-      <p class="in">${onL.join(", ")}</p>
-      <p class="out">Bench: ${offL.length?offL.join(", "):"none"}</p></div>`;
+    h+=`<div class="seg" data-seg="${i}"><h3><span>Period ${s.period}${per>1?` · Part ${s.part}`:""}</span><small>${startT}–${endT}</small></h3>
+      <p class="in p">${onL.join(", ")}</p>
+      <p class="out p">Bench: ${offL.length?offL.join(", "):"none"}</p>
+      <button type="button" class="donebtn" data-done="${i}" aria-pressed="false"><span class="box" aria-hidden="true"></span><span class="lbl">Mark shift done</span></button></div>`;
   });
   h+=`</div><p class="note" style="margin-top:8px">Names in green are coming on at that break.</p></div>`;
   $("out").innerHTML=h;
+  paintDone();
 }
+function paintDone(){
+  const cards=[...document.querySelectorAll(".seg[data-seg]")]; if(!cards.length) return;
+  const total=cards.length; let cur=-1;
+  for(let i=0;i<total;i++){ if(!done.has(i)){ cur=i; break; } }
+  cards.forEach(c=>{
+    const i=+c.dataset.seg, d=done.has(i);
+    c.classList.toggle("done",d); c.classList.toggle("now",i===cur);
+    const h=c.querySelector("h3"); let t=h.querySelector(".tag");
+    if(i===cur){ if(!t){ t=document.createElement("span"); t.className="tag"; t.textContent="On now"; h.firstElementChild.after(t); } }
+    else if(t) t.remove();
+    const b=c.querySelector(".donebtn"); b.setAttribute("aria-pressed",d);
+    b.querySelector(".box").textContent=d?"✓":""; b.querySelector(".lbl").textContent=d?"Done (tap to undo)":"Mark shift done";
+  });
+  document.querySelectorAll("[data-col]").forEach(el=>{
+    const i=+el.dataset.col;
+    if(el.tagName==="TD") el.classList.toggle("donecol",done.has(i));
+    else { el.classList.toggle("cur",i===cur); el.textContent=el.textContent.replace(/^✓ /,""); if(done.has(i)) el.textContent="✓ "+el.textContent; }
+  });
+  $("bar").style.width=(done.size/total*100)+"%";
+  $("prog").textContent = done.size===total ? "All "+total+" shifts done. Game over!" : done.size+" of "+total+" shifts done";
+}
+$("out").addEventListener("click",e=>{
+  const b=e.target.closest("[data-done]"); if(!b) return;
+  const i=+b.dataset.done; done.has(i)?done.delete(i):done.add(i); paintDone();
+  if(done.has(i)){ const next=document.querySelector(".seg.now"); if(next) next.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+});
 function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 $("shuffle").addEventListener("click",()=>{
