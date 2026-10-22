@@ -103,6 +103,11 @@ th.brk{border-left:2px dashed var(--chalk)}
 .bar i{display:block;height:100%;background:var(--turf);width:0;transition:width .25s}
 .progress span{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
 th.cur{color:var(--turf)}
+th.colbtn{cursor:pointer;border-radius:5px;background:var(--bench);user-select:none;-webkit-user-select:none}
+th.colbtn.cur{background:var(--turf-soft)}
+th.colbtn.isdone{background:var(--turf);color:var(--surface)}
+.ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translate(-50%,-60px);z-index:60;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15);pointer-events:none;opacity:0}
+.reloadbtn{position:fixed;right:calc(max(12px,env(safe-area-inset-right,0px)));bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:40;border-radius:999px;padding:10px 14px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 td.donecol{opacity:.4}
 @media (prefers-reduced-motion: reduce){.seg,.bar i{transition:none}}
 .seg h3 small{font-family:var(--body);font-size:.75rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
@@ -173,7 +178,7 @@ Addy</textarea></label>
       <li>Each period is split into equal <b>shifts</b> at the water breaks. You sub only at those stops.</li>
       <li>The <b>rotation grid</b> shows who plays each shift and their total minutes. Totals in orange are one shift short.</li>
       <li><b>Shift by shift</b> cards list who's on and who sits, with game-clock times. Green names are coming on.</li>
-      <li>Tap <b>Mark shift done</b> at each water break to keep your place. The next shift is outlined and tagged <b>On now</b>. Checks clear whenever you build a new rotation.</li>
+      <li>Tap <b>Mark shift done</b> at each water break to keep your place. The next shift is outlined and tagged <b>On now</b>. You can also tap a shift's header in the grid to check it off or undo it. Checks clear whenever you build a new rotation.</li>
     </ul>
     <h3>Tips</h3>
     <ul>
@@ -181,7 +186,7 @@ Addy</textarea></label>
       <li><b>Shuffle start order</b> changes who starts on the bench, so the same kids don't always sit first.</li>
       <li>Absent player? Move them to the bottom of the list and lower team size.</li>
       <li>Your roster and settings stay saved on this phone.</li>
-      <li>Add this page to your home screen to open it like an app at the field.</li>
+      <li>Add this page to your home screen to open it like an app at the field. To get the latest version, pull down at the top of the page or tap <b>Reload</b>.</li>
     </ul>
   </div>
 </div>
@@ -255,7 +260,7 @@ function build(){
   <div>
   <h2>Rotation grid</h2>
   <div class="scroll"><table><thead><tr><th></th>`;
-  segs.forEach((s,i)=>{ h+=`<th data-col="${i}" class="${i>0&&s.part===1?'brk':''}">${label(s)}</th>`; });
+  segs.forEach((s,i)=>{ h+=`<th data-col="${i}" data-done="${i}" tabindex="0" role="button" aria-pressed="false" title="Tap to mark this shift done" class="colbtn ${i>0&&s.part===1?'brk':''}">${label(s)}</th>`; });
   h+=`<th>Min</th></tr></thead><tbody>`;
   const sorted=[...Array(n).keys()];
   sorted.forEach(p=>{
@@ -264,7 +269,7 @@ function build(){
     h+=`<td class="tot ${mins[p]<hi-0.01?'lo':''}">${fmt(mins[p])}</td></tr>`;
   });
   h+=`</tbody></table></div>
-  <div class="legend"><span><i style="background:var(--turf)"></i>Playing</span><span><i style="background:var(--bench)"></i>Bench</span><span>Dashed line = new period</span></div>
+  <div class="legend"><span><i style="background:var(--turf)"></i>Playing</span><span><i style="background:var(--bench)"></i>Bench</span><span>Dashed line = new period</span><span>Tap a shift header to check it off</span></div>
   </div></div>
   <div><h2>Shift by shift</h2>
   <div class="progress"><div class="bar"><i id="bar"></i></div><span id="prog"></span></div>
@@ -299,15 +304,16 @@ function paintDone(){
   document.querySelectorAll("[data-col]").forEach(el=>{
     const i=+el.dataset.col;
     if(el.tagName==="TD") el.classList.toggle("donecol",done.has(i));
-    else { el.classList.toggle("cur",i===cur); el.textContent=el.textContent.replace(/^✓ /,""); if(done.has(i)) el.textContent="✓ "+el.textContent; }
+    else { el.classList.toggle("cur",i===cur); el.classList.toggle("isdone",done.has(i)); el.setAttribute("aria-pressed",done.has(i)); el.textContent=el.textContent.replace(/^✓ /,""); if(done.has(i)) el.textContent="✓ "+el.textContent; }
   });
   $("bar").style.width=(done.size/total*100)+"%";
   $("prog").textContent = done.size===total ? "All "+total+" shifts done. Game over!" : done.size+" of "+total+" shifts done";
 }
+$("out").addEventListener("keydown",e=>{ if((e.key==="Enter"||e.key===" ") && e.target.matches("th[data-done]")){ e.preventDefault(); e.target.click(); } });
 $("out").addEventListener("click",e=>{
   const b=e.target.closest("[data-done]"); if(!b) return;
   const i=+b.dataset.done; done.has(i)?done.delete(i):done.add(i); paintDone();
-  if(done.has(i)){ const next=document.querySelector(".seg.now"); if(next) next.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  if(done.has(i) && b.tagName!=="TH"){ const next=document.querySelector(".seg.now"); if(next) next.scrollIntoView({behavior:"smooth",block:"nearest"}); }
 });
 function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
@@ -327,6 +333,25 @@ $("helpbtn").addEventListener("click",()=>{ help.hidden=false; $("helpclose").fo
 $("helpclose").addEventListener("click",()=>{ help.hidden=true; $("helpbtn").focus(); });
 help.addEventListener("click",e=>{ if(e.target===help) help.hidden=true; });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !help.hidden) help.hidden=true; });
+// Pull down at the top of the page to reload (home-screen apps have no browser refresh)
+const isApp = window.navigator.standalone===true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+const ptr=document.createElement("div"); ptr.className="ptr"; ptr.setAttribute("aria-hidden","true"); document.body.appendChild(ptr);
+let y0=null, pull=0;
+window.addEventListener("touchstart",e=>{ y0=(isApp && window.scrollY<=0 && help.hidden && e.touches.length===1)? e.touches[0].clientY : null; pull=0; },{passive:true});
+window.addEventListener("touchmove",e=>{
+  if(y0===null) return; pull=Math.max(0,e.touches[0].clientY-y0);
+  if(pull>0){ const d=Math.min(pull,120); ptr.style.opacity=Math.min(1,d/70); ptr.style.transform=`translate(-50%,${d*0.6-60}px)`; ptr.textContent= pull>90 ? "Release to reload" : "Pull to reload"; }
+},{passive:true});
+window.addEventListener("touchend",()=>{
+  if(y0!==null && pull>90){ ptr.textContent="Reloading…"; location.reload(); }
+  else { ptr.style.opacity=0; ptr.style.transform="translate(-50%,-60px)"; }
+  y0=null; pull=0;
+});
+// Visible Reload button when opened from the home screen
+if(isApp){
+  const rb=document.createElement("button"); rb.type="button"; rb.className="reloadbtn"; rb.textContent="↻ Reload";
+  rb.addEventListener("click",()=>location.reload()); document.body.appendChild(rb);
+}
 safeBuild();
 })();
 </script>
