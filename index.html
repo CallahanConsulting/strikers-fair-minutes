@@ -44,6 +44,8 @@ header.club .t{min-width:0;display:grid;gap:2px;justify-items:center}
 header.club p.sub{margin-inline:auto}
 .helpbtn{margin-top:10px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:999px;padding:6px 14px;font-size:.88rem}
 .helpbtn:hover{border-color:#fff}
+.hbtns{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
+.hbtns .helpbtn{margin-top:0}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center;
   padding:max(16px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
 @media (min-width:600px){.overlay{align-items:center}}
@@ -107,7 +109,6 @@ th.colbtn{cursor:pointer;border-radius:5px;background:var(--bench);user-select:n
 th.colbtn.cur{background:var(--turf-soft)}
 th.colbtn.isdone{background:var(--turf);color:var(--surface)}
 .ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translate(-50%,-60px);z-index:60;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15);pointer-events:none;opacity:0}
-.reloadbtn{position:fixed;right:calc(max(12px,env(safe-area-inset-right,0px)));bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:40;border-radius:999px;padding:10px 14px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 td.donecol{opacity:.4}
 @media (prefers-reduced-motion: reduce){.seg,.bar i{transition:none}}
 .seg h3 small{font-family:var(--body);font-size:.75rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
@@ -127,7 +128,7 @@ td.donecol{opacity:.4}
     <p class="club-name">Lee County Strikers</p>
     <h1>Fair Minutes</h1>
     <p class="sub">Set your game format and roster. The planner splits every period at the water breaks and rotates players so minutes come out as even as possible.</p>
-    <button class="helpbtn" id="helpbtn" type="button">How to use</button>
+    <div class="hbtns"><button class="helpbtn" id="helpbtn" type="button">How to use</button><button class="helpbtn" id="reloadbtn" type="button">↻ Reload app</button></div>
     </div>
   </header>
 
@@ -186,7 +187,7 @@ Addy</textarea></label>
       <li><b>Shuffle start order</b> changes who starts on the bench, so the same kids don't always sit first.</li>
       <li>Absent player? Move them to the bottom of the list and lower team size.</li>
       <li>Your roster and settings stay saved on this phone.</li>
-      <li>Add this page to your home screen to open it like an app at the field. To get the latest version, pull down at the top of the page or tap <b>Reload</b>.</li>
+      <li>Add this page to your home screen to open it like an app at the field. To get the latest version, pull down at the top of the page or tap <b>Reload app</b> in the header.</li>
     </ul>
   </div>
 </div>
@@ -347,11 +348,7 @@ window.addEventListener("touchend",()=>{
   else { ptr.style.opacity=0; ptr.style.transform="translate(-50%,-60px)"; }
   y0=null; pull=0;
 });
-// Visible Reload button when opened from the home screen
-if(isApp){
-  const rb=document.createElement("button"); rb.type="button"; rb.className="reloadbtn"; rb.textContent="↻ Reload";
-  rb.addEventListener("click",()=>location.reload()); document.body.appendChild(rb);
-}
+$("reloadbtn").addEventListener("click",()=>location.reload());
 safeBuild();
 })();
 </script>
